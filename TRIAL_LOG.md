@@ -7,6 +7,7 @@ This log counts research attempts, including failures. Do not delete, renumber, 
 | 001 | 2026-08-14 | Charter v1.0 | Defined a four-prior-bar, 30-minute TSLA RTH continuation signal. | No data ingested | Frozen specification; no performance claim. |
 | 002 | 2026-08-14 | Phase 2 | Implemented Pine and independent Python replay; verified deterministic synthetic timing. | Synthetic test only | Passed timing test; no market-data result. |
 | 003 | 2026-08-14 | Phase 3 | Added fixed-segment base/stress validator and provenance intake contract. | No data ingested | Pending documented full-history CSV. |
+| 004 | 2026-08-14 | Phase 3 | Selected a provider-neutral one-minute OHLCV intake path and added an optional Databento normalizer. | No account/key/data request | Pending user approval of provider account, entitlement, and estimate. |
 
 ## Log rule
 

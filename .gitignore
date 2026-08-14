@@ -1,5 +1,7 @@
 # Large or licensed market data and generated research output
 data/raw/
+data/processed/
 results/
 __pycache__/
 *.pyc
+.env

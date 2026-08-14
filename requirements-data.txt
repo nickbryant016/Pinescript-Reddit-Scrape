@@ -1,0 +1,4 @@
+# Optional local data-intake dependencies. Do not install or use them until the
+# user has approved the provider account, entitlement, and data request.
+databento>=0.64
+pandas>=2.2
