@@ -19,7 +19,7 @@ This first experiment tests a **signal**, not a finished trading system. It inte
 | Range | `rangeHigh` = highest high of bars `[1]` through `[4]`; `rangeLow` = lowest low of bars `[1]` through `[4]`. The signal bar is never part of its own range. |
 | Long signal | Confirmed bar closes above `rangeHigh` **and** prior confirmed close is at or below `rangeHigh`. |
 | Short signal | Confirmed bar closes below `rangeLow` **and** prior confirmed close is at or above `rangeLow`. |
-| Signal window | A signal may occur only on bars closing from 09:50 through 15:25, so all simulated execution stays in regular hours. |
+| Signal window | A signal may occur only on bars closing from 09:55 through 15:25, so all simulated execution stays in regular hours. Four prior 5-minute bars are required before the first eligible signal. |
 | Entry | One market order created at the signal-bar close; Pine must fill it no earlier than the next bar’s open. |
 | Holding period | Six complete 5-minute bars after entry (30 minutes). A market exit is created at the close of the sixth bar and fills at the next bar open. |
 | Positioning | One position maximum; no pyramiding, reversal, averaging, leverage, or overnight carry. New signals while a position is open are ignored. |

@@ -21,3 +21,17 @@ This is a permanent process log for the TSLA research project. Entries record th
 - Commit each material research artifact and every later code/data change with a descriptive message.
 - Record any process, data, execution-model, or validation error in this file before changing the affected conclusion or implementation.
 - Never rewrite history to conceal an error; append a correction and commit it.
+
+## 2026-08-14 — First eligible signal time was off by one bar in the Phase 2 draft
+
+- **Mistake:** The charter and initial Pine session window allowed a 09:50 bar-close signal, although four completed 5-minute regular-session bars do not exist until the 09:55 close.
+- **Impact:** The implementation would have safely produced no early signal because the range was undefined, but the written specification and independent replay boundary were inconsistent.
+- **Correction:** Changed the frozen first eligible signal to the 09:55 close (the bar opening at 09:50) in the charter, Pine script, and independent replay.
+- **Permanent control:** For every time-based strategy rule, document whether timestamps represent bar open or bar close and verify the first and last executable event with a concrete session timeline.
+
+## 2026-08-14 — Initial synthetic replay assertion ignored same-bar re-entry eligibility
+
+- **Mistake:** The first deterministic replay test expected exactly one trade, but the frozen rules permit a new signal at the close of the bar where the prior 30-minute trade exits at the open.
+- **Impact:** The test failed even though the replay followed the specified execution sequence. The same test also revealed that an audit failure would exit before preserving its diagnostic report.
+- **Correction:** Updated the test expectation to verify the first known trade and changed the replay so it always writes `audit.json` before failing validation.
+- **Permanent control:** Synthetic tests must model the complete state transition of order fill, bar close, and eligibility for the next signal; audit artifacts must be preserved on both pass and fail paths.

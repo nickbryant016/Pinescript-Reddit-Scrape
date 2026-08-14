@@ -1,0 +1,72 @@
+//@version=6
+// TSLA 5-minute clean-room signal study v1.0
+// Implements the frozen rules in TSLA_5m_Clean_Room_Research_Charter.md.
+// This tests a 30-minute continuation signal; it is not a deployable strategy.
+strategy(
+     "TSLA 5m Clean-Room Signal Study v1",
+     overlay = true,
+     initial_capital = 100000,
+     currency = currency.USD,
+     default_qty_type = strategy.fixed,
+     default_qty_value = 1,
+     pyramiding = 0,
+     commission_type = strategy.commission.percent,
+     commission_value = 0.01,
+     slippage = 5,
+     process_orders_on_close = false,
+     calc_on_every_tick = false,
+     calc_on_order_fills = false,
+     use_bar_magnifier = false)
+
+if barstate.isfirst and syminfo.ticker != "TSLA"
+    runtime.error("This clean-room study is frozen for TSLA only.")
+
+if barstate.isfirst and (not timeframe.isminutes or timeframe.multiplier != 5)
+    runtime.error("Run this study on a standard 5-minute chart only.")
+
+// The chart must use standard candles and regular-session data. The session argument,
+// rather than the chart's display timezone, determines eligibility.
+string nyTz = "America/New_York"
+bool inRth = not na(time(timeframe.period, "0930-1600", nyTz))
+bool signalWindow = not na(time(timeframe.period, "0950-1525", nyTz))
+
+// The current bar is excluded from its breakout range.
+float rangeHigh = ta.highest(high[1], 4)
+float rangeLow = ta.lowest(low[1], 4)
+
+bool longSignal = barstate.isconfirmed and signalWindow and close > rangeHigh and close[1] <= rangeHigh
+bool shortSignal = barstate.isconfirmed and signalWindow and close < rangeLow and close[1] >= rangeLow
+
+// `pendingEntry` prevents a second market order during the one-bar fill delay.
+var bool pendingEntry = false
+var int entryBar = na
+
+bool enteredThisBar = strategy.position_size != 0 and strategy.position_size[1] == 0
+bool exitedThisBar = strategy.position_size == 0 and strategy.position_size[1] != 0
+
+if enteredThisBar
+    pendingEntry := false
+    entryBar := bar_index
+
+if exitedThisBar
+    entryBar := na
+
+bool flatAndReady = strategy.position_size == 0 and not pendingEntry
+
+if longSignal and flatAndReady
+    strategy.entry("L", strategy.long, comment = "4-bar breakout")
+    pendingEntry := true
+
+if shortSignal and flatAndReady
+    strategy.entry("S", strategy.short, comment = "4-bar breakdown")
+    pendingEntry := true
+
+// The entry fills at the open of `entryBar`. Once six full 5-minute bars have
+// completed, this close submits a market exit that fills at the following open.
+bool holdComplete = strategy.position_size != 0 and not na(entryBar) and bar_index - entryBar >= 5
+if holdComplete and barstate.isconfirmed
+    strategy.close_all(comment = "30-minute time exit")
+
+plot(rangeHigh, "Prior four-bar high", color = color.new(color.lime, 35), style = plot.style_linebr)
+plot(rangeLow, "Prior four-bar low", color = color.new(color.red, 35), style = plot.style_linebr)
+bgcolor(inRth ? na : color.new(color.gray, 92), title = "Outside RTH")
