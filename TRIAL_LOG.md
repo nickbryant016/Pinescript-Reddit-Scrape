@@ -8,6 +8,7 @@ This log counts research attempts, including failures. Do not delete, renumber, 
 | 002 | 2026-08-14 | Phase 2 | Implemented Pine and independent Python replay; verified deterministic synthetic timing. | Synthetic test only | Passed timing test; no market-data result. |
 | 003 | 2026-08-14 | Phase 3 | Added fixed-segment base/stress validator and provenance intake contract. | No data ingested | Pending documented full-history CSV. |
 | 004 | 2026-08-14 | Phase 3 | Selected a provider-neutral one-minute OHLCV intake path and added an optional Databento normalizer. | No account/key/data request | Pending user approval of provider account, entitlement, and estimate. |
+| 005 | 2026-08-14 | Phase 3 | Verified the authenticated provider catalog and quoted the pre-registered TSLA study period. | No data ingested; user account/API key remain external to repo | `EQUS.MINI` failed the 2019 coverage requirement; selected `XNAS.ITCH` primary-venue OHLCV-1m. Portal quote: $1.04 in credits for 2019-01-01 through 2026-08-13 UTC; submission pending approval. |
 
 ## Log rule
 

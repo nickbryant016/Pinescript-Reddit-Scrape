@@ -4,9 +4,13 @@
 
 Use a documented historical **one-minute OHLCV** source for the initial Phase 3 signal study, then use top-of-book trades/quotes only after the signal survives fixed out-of-sample and cost-stress checks.
 
-The preferred provider is **Databento US Equities**, subject to the user opening an account, reviewing the provider’s current estimate/licensing terms, and supplying an API key locally. Its documentation lists 1-minute OHLCV bars and top-of-book schemas; the latter is appropriate for later bid/ask execution analysis, not a prerequisite for the current bar-level hypothesis. [Databento schemas](https://databento.com/docs/knowledge-base) and [US Equities Mini specification](https://databento.com/docs/venues-and-datasets/equs-mini)
+The provider is **Databento US Equities**. Its documentation lists one-minute OHLCV bars and top-of-book schemas; the latter is appropriate for later bid/ask execution analysis, not a prerequisite for the current bar-level hypothesis. [Databento schemas](https://databento.com/docs/knowledge-base)
 
-No provider account, paid subscription, data request, or API key has been created or used by this project.
+## Selected source and coverage
+
+The selected source is **Databento Nasdaq TotalView-ITCH (`XNAS.ITCH`)**, TSLA's primary-listing venue. It supports one-minute OHLCV from 2018-05-01, covering the frozen 2019-2024 development and validation periods. This is a **primary-venue** series, not a consolidated US-equities series; it is fit for the clean-room research test but is not assumed to reproduce a TradingView chart exactly.
+
+The user has created a provider account and API key outside this repository. No API key is stored here, and no data request has yet been submitted by this project.
 
 ## Phase 3 request
 
@@ -17,12 +21,12 @@ Request a vendor estimate before downloading:
 | Symbol | TSLA, with provider-specific raw-symbol convention documented |
 | Period | 2019-01-01 through the current available date |
 | Granularity | 1-minute OHLCV, aggregated locally into 5-minute bars |
-| Coverage | Regular US trading session must be present; retain full-session source rows locally for audit |
+| Coverage | Nasdaq primary-listing venue; regular US trading session must be present; retain full-session source rows locally for audit |
 | Price treatment | Document raw versus split-adjusted prices and ensure one convention for the entire period |
 | File format | CSV normalized to the project contract, timestamps as bar opens with explicit UTC offsets |
 | Storage | `data/raw/` locally only; never commit licensed raw data or API keys |
 
-The vendor may offer a usage estimate and trial credits, but activating an account or incurring a charge requires the user’s confirmation.
+On 2026-08-14, the authenticated provider portal quoted **$1.04 in credits** for `XNAS.ITCH`, `OHLCV-1m`, TSLA, 2019-01-01 through 2026-08-13 UTC (92.90 MB). Submission remains pending the user’s confirmation.
 
 ## Why not use free short-retention bars?
 
@@ -39,7 +43,7 @@ If the one-minute-bar signal passes Phase 3, request a bounded sample of top-of-
 ```powershell
 pip install -r requirements-data.txt
 $env:DATABENTO_API_KEY = "..." # keep this outside the repository
-python tools/fetch_databento_ohlcv.py --dataset EQUS.MINI --symbol TSLA --start 2019-01-01 --end 2026-08-15 --output data/raw/tsla_5m.csv
+python tools/fetch_databento_ohlcv.py --dataset XNAS.ITCH --symbol TSLA --start 2019-01-01 --end 2026-08-14 --output data/raw/tsla_5m.csv
 ```
 
 Before running the command, confirm the dataset entitlement and vendor estimate in the provider portal. The dataset flag is explicit because availability depends on the account’s current entitlement.

@@ -35,3 +35,10 @@ This is a permanent process log for the TSLA research project. Entries record th
 - **Impact:** The test failed even though the replay followed the specified execution sequence. The same test also revealed that an audit failure would exit before preserving its diagnostic report.
 - **Correction:** Updated the test expectation to verify the first known trade and changed the replay so it always writes `audit.json` before failing validation.
 - **Permanent control:** Synthetic tests must model the complete state transition of order fill, bar close, and eligibility for the next signal; audit artifacts must be preserved on both pass and fail paths.
+
+## 2026-08-14 — Data-plan coverage was assumed rather than verified in the provider portal
+
+- **Mistake:** The documented intake example used Databento `EQUS.MINI` for the full 2019–present study before confirming that dataset's actual coverage.
+- **Impact:** `EQUS.MINI` begins on 2023-03-28, which cannot support the frozen 2019–2022 development window. Proceeding would have silently broken the validation design.
+- **Correction:** Verified coverage in the authenticated portal before any purchase. The plan now specifies `XNAS.ITCH` primary-listing one-minute OHLCV, available from 2018-05-01, and explicitly records its non-consolidated scope.
+- **Permanent control:** Verify a vendor's symbol-level history, schema, venue scope, date bounds, and exact estimate in the authenticated catalog before recording a dataset in a research charter or sending a data request.
