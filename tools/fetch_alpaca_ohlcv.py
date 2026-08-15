@@ -1,7 +1,8 @@
 """Fetch Alpaca SIP one-minute bars and normalize them to the project's five-minute CSV.
 
-Credentials are read only from APCA_API_KEY_ID and APCA_API_SECRET_KEY. The
-script never writes credentials and refuses to emit incomplete five-minute bars.
+Credentials are read from APCA_API_KEY_ID/APCA_API_SECRET_KEY or, for a single
+process, from standard input. The script never writes credentials and refuses
+to emit incomplete five-minute bars.
 """
 
 from __future__ import annotations
@@ -10,18 +11,35 @@ import argparse
 import csv
 import json
 import os
+import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from collections import defaultdict
-from datetime import datetime, time as clock_time, timezone
+from datetime import datetime, time as clock_time, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 
 API_URL = "https://data.alpaca.markets/v2/stocks/{symbol}/bars"
 NEW_YORK = ZoneInfo("America/New_York")
+EARLY_CLOSE_DATES = frozenset(
+    {
+        "2019-07-03", "2019-11-29", "2019-12-24",
+        "2020-11-27", "2020-12-24",
+        "2021-11-26",
+        "2022-11-25",
+        "2023-07-03", "2023-11-24",
+        "2024-07-03", "2024-11-29", "2024-12-24",
+        "2025-07-03", "2025-11-28", "2025-12-24",
+    }
+)
+MARKET_WIDE_HALT_DATES = frozenset({"2020-03-09", "2020-03-12", "2020-03-16", "2020-03-18"})
+
+
+def regular_session_last(local: datetime) -> clock_time:
+    return clock_time(12, 55) if local.date().isoformat() in EARLY_CLOSE_DATES else clock_time(15, 55)
 
 
 def parse_args() -> argparse.Namespace:
@@ -30,6 +48,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--start", required=True, help="inclusive ISO date/time")
     parser.add_argument("--end", required=True, help="exclusive ISO date/time; must be 15+ minutes old")
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--native-5m",
+        action="store_true",
+        help="request vendor five-minute bars directly after a logged one-minute completeness failure",
+    )
+    parser.add_argument(
+        "--stdin-credentials",
+        action="store_true",
+        help="read key ID then secret from stdin for one process only; do not use shell history",
+    )
     return parser.parse_args()
 
 
@@ -44,9 +72,9 @@ def request_page(symbol: str, params: dict[str, str], headers: dict[str, str]) -
         raise SystemExit(f"Alpaca request failed ({error.code}): {body}") from error
 
 
-def fetch_minutes(symbol: str, start: str, end: str, headers: dict[str, str]) -> list[dict]:
+def fetch_bars(symbol: str, start: str, end: str, headers: dict[str, str], timeframe: str) -> list[dict]:
     params = {
-        "timeframe": "1Min",
+        "timeframe": timeframe,
         "start": start,
         "end": end,
         "limit": "10000",
@@ -84,7 +112,7 @@ def normalize(bars: list[dict]) -> list[dict[str, str | int | float]]:
             raise SystemExit(f"Duplicate one-minute timestamp: {stamp.isoformat()}")
         seen.add(stamp)
         local = stamp.astimezone(NEW_YORK)
-        if local.weekday() < 5 and clock_time(9, 30) <= local.time() <= clock_time(15, 59):
+        if local.weekday() < 5 and clock_time(9, 30) <= local.time() <= regular_session_last(local):
             bucket = local.replace(minute=(local.minute // 5) * 5, second=0, microsecond=0)
             groups[bucket].append(bar)
 
@@ -106,14 +134,58 @@ def normalize(bars: list[dict]) -> list[dict[str, str | int | float]]:
     return output
 
 
+def normalize_native_five(bars: list[dict]) -> list[dict[str, str | int | float]]:
+    """Normalize provider-native five-minute bars without inventing missing minutes."""
+    output: list[dict[str, str | int | float]] = []
+    seen: set[datetime] = set()
+    for bar in bars:
+        required = {"t", "o", "h", "l", "c", "v"}
+        if not required.issubset(bar):
+            raise SystemExit(f"Unexpected Alpaca bar fields: {sorted(bar)}")
+        stamp = to_datetime(str(bar["t"]))
+        if stamp in seen:
+            raise SystemExit(f"Duplicate five-minute timestamp: {stamp.isoformat()}")
+        seen.add(stamp)
+        local = stamp.astimezone(NEW_YORK)
+        if local.weekday() >= 5 or not (clock_time(9, 30) <= local.time() <= regular_session_last(local)):
+            continue
+        output.append(
+            {
+                "timestamp": local.strftime("%Y-%m-%dT%H:%M:%S%z"),
+                "open": bar["o"],
+                "high": bar["h"],
+                "low": bar["l"],
+                "close": bar["c"],
+                "volume": bar["v"],
+            }
+        )
+    for earlier, later in zip(output, output[1:]):
+        earlier_stamp = datetime.fromisoformat(str(earlier["timestamp"]))
+        later_stamp = datetime.fromisoformat(str(later["timestamp"]))
+        local_day = earlier_stamp.astimezone(NEW_YORK).date().isoformat()
+        if (
+            earlier_stamp.astimezone(NEW_YORK).date() == later_stamp.astimezone(NEW_YORK).date()
+            and later_stamp - earlier_stamp != timedelta(minutes=5)
+            and local_day not in MARKET_WIDE_HALT_DATES
+        ):
+            raise SystemExit(f"Incomplete provider-native five-minute sequence after {earlier['timestamp']}")
+    return output
+
+
 def main() -> None:
     args = parse_args()
-    key_id = os.environ.get("APCA_API_KEY_ID")
-    secret = os.environ.get("APCA_API_SECRET_KEY")
+    if args.stdin_credentials:
+        key_id = sys.stdin.readline().strip()
+        secret = sys.stdin.readline().strip()
+    else:
+        key_id = os.environ.get("APCA_API_KEY_ID")
+        secret = os.environ.get("APCA_API_SECRET_KEY")
     if not key_id or not secret:
         raise SystemExit("Set APCA_API_KEY_ID and APCA_API_SECRET_KEY locally; never add them to the repository.")
     headers = {"APCA-API-KEY-ID": key_id, "APCA-API-SECRET-KEY": secret}
-    normalized = normalize(fetch_minutes(args.symbol, args.start, args.end, headers))
+    timeframe = "5Min" if args.native_5m else "1Min"
+    source = fetch_bars(args.symbol, args.start, args.end, headers, timeframe)
+    normalized = normalize_native_five(source) if args.native_5m else normalize(source)
     if not normalized:
         raise SystemExit("No regular-session bars were returned.")
     args.output.parent.mkdir(parents=True, exist_ok=True)

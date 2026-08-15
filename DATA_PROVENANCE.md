@@ -4,18 +4,18 @@ No market data may be used for a Phase 3 conclusion until this record is filled 
 
 | Field | Required entry |
 |---|---|
-| Provider and product | |
-| Retrieval date/time | |
-| Instrument identifier and exchange/feed | |
-| Earliest/latest timestamp | |
+| Provider and product | Alpaca Basic historical US equities, SIP feed |
+| Retrieval date/time | 2026-08-14 21:31 America/New_York; eight annual requests, merged locally |
+| Instrument identifier and exchange/feed | TSLA; consolidated US-equities SIP bars |
+| Earliest/latest timestamp | 2019-01-02T09:30:00-05:00 / 2026-08-13T15:55:00-04:00 |
 | Bar timestamp convention | Bar **open** timestamp, with explicit timezone/offset |
-| Session coverage | Must include or allow isolating 09:30–16:00 America/New_York |
-| Corporate-action treatment | Raw or adjusted; specify split/dividend convention |
-| OHLC construction | Trade, midpoint, or vendor bar definition |
-| Volume definition | |
-| Known gaps / early closes / halts | |
-| License / redistribution restriction | |
-| SHA-256 of local source file | |
+| Session coverage | Provider-native 5-minute bars, filtered to Nasdaq regular session: 09:30–16:00 ET, with pre-registered 13:00 ET early closes |
+| Corporate-action treatment | `adjustment=raw`; expected TSLA split discontinuities remain in the raw series |
+| OHLC construction | Alpaca historical SIP five-minute OHLCV bars; provider bar-construction methodology is not independently reconstructed |
+| Volume definition | Provider-reported five-minute bar volume |
+| Known gaps / early closes / halts | No unexplained RTH gaps. Four verified market-wide circuit-breaker interruptions (2020-03-09, 03-12, 03-16, 03-18) remain unfilled and are excluded when a trade would span a gap. Nasdaq early-close calendar applied. |
+| License / redistribution restriction | Raw provider response remains local under `data/raw/`, ignored by Git; no credentials or raw data are committed. |
+| SHA-256 of local source file | `D46261838B08A0F640B9E5199D1894892615EA668414CF67250FD88C5D34D584` (`data/raw/tsla_5m.csv`, 148,744 bars) |
 
 ## Required intake checks
 
@@ -23,6 +23,10 @@ No market data may be used for a Phase 3 conclusion until this record is filled 
 2. Run `tools/tsla_breakout_v1.py` once. It writes `audit.json` even when it rejects the file.
 3. Resolve every invalid OHLC, duplicate timestamp, missing regular-session bar, and unexplained discontinuity before strategy replay.
 4. Commit this completed record and the non-sensitive audit metadata before viewing validation metrics.
+
+## Intake result
+
+The completed independent audit reported zero invalid OHLC records, duplicate timestamps, or unexplained incomplete regular-session days. It retained the four verified interruption days above, plus the expected raw-price discontinuities around TSLA's 2020 and 2022 stock splits. Those facts are source characteristics, not strategy changes.
 
 ## Fixed Phase 3 segments
 

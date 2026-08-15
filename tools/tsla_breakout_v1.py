@@ -23,6 +23,18 @@ RTH_OPEN = time(9, 30)
 RTH_LAST = time(15, 55)
 SIGNAL_FIRST = time(9, 50)  # closes at 09:55; four previous RTH bars exist
 SIGNAL_LAST = time(15, 20)  # closes at 15:25
+EARLY_CLOSE_DATES = frozenset(
+    {
+        "2019-07-03", "2019-11-29", "2019-12-24",
+        "2020-11-27", "2020-12-24",
+        "2021-11-26",
+        "2022-11-25",
+        "2023-07-03", "2023-11-24",
+        "2024-07-03", "2024-11-29", "2024-12-24",
+        "2025-07-03", "2025-11-28", "2025-12-24",
+    }
+)
+MARKET_WIDE_HALT_DATES = frozenset({"2020-03-09", "2020-03-12", "2020-03-16", "2020-03-18"})
 
 
 @dataclass(frozen=True)
@@ -86,7 +98,8 @@ def load_bars(path: Path) -> list[Bar]:
 
 def is_rth(bar: Bar) -> bool:
     local = bar.ny_time
-    return local.weekday() < 5 and RTH_OPEN <= local.time() <= RTH_LAST
+    last = time(12, 55) if local.date().isoformat() in EARLY_CLOSE_DATES else RTH_LAST
+    return local.weekday() < 5 and RTH_OPEN <= local.time() <= last
 
 
 def audit(bars: list[Bar]) -> dict:
@@ -112,14 +125,19 @@ def audit(bars: list[Bar]) -> dict:
         by_day.setdefault(bar.ny_time.date().isoformat(), []).append(bar)
 
     incomplete_days: list[dict] = []
+    verified_interruption_days: list[dict] = []
     for day, day_bars in by_day.items():
-        expected = 42 if day_bars[-1].ny_time.time() == time(12, 55) else 78
+        expected = 42 if day in EARLY_CLOSE_DATES else 78
         missing = []
         for earlier, later in zip(day_bars, day_bars[1:]):
             if later.timestamp - earlier.timestamp != BAR:
                 missing.append({"after": earlier.timestamp.isoformat(), "before": later.timestamp.isoformat()})
+        report = {"date": day, "bars": len(day_bars), "expected": expected, "gaps": missing}
         if len(day_bars) != expected or missing:
-            incomplete_days.append({"date": day, "bars": len(day_bars), "expected": expected, "gaps": missing})
+            if day in MARKET_WIDE_HALT_DATES:
+                verified_interruption_days.append(report)
+            else:
+                incomplete_days.append(report)
 
     discontinuities = []
     for previous, current in zip(rth, rth[1:]):
@@ -135,6 +153,7 @@ def audit(bars: list[Bar]) -> dict:
         "last_timestamp": bars[-1].timestamp.isoformat(),
         "issues": issues,
         "incomplete_rth_days": incomplete_days,
+        "verified_market_interruption_days": verified_interruption_days,
         "possible_corporate_action_or_data_discontinuities": discontinuities,
     }
 

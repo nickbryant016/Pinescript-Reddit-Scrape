@@ -49,3 +49,17 @@ This is a permanent process log for the TSLA research project. Entries record th
 - **Impact:** This created unnecessary account setup and delayed the research workflow.
 - **Correction:** Verified Alpaca Basic's documented historical coverage since 2016 and its free historical SIP access for completed periods, then replaced the data-intake plan with an Alpaca adapter.
 - **Permanent control:** Before recommending a paid dataset for a backtest, screen and document viable free sources against the exact symbol, bar interval, date range, feed scope, and retention requirement.
+
+## 2026-08-14 — Alpaca one-minute bars failed the project's aggregation-completeness control
+
+- **Mistake:** The initial Alpaca adapter assumed that every regular-session five-minute interval could be reconstructed from five vendor one-minute bars.
+- **Impact:** The 2019-01-17 11:20 ET interval contained only four returned one-minute bars, so the strict normalizer correctly refused to create a research file.
+- **Correction:** Verified that Alpaca's native SIP five-minute endpoint returns the affected interval. The initial run uses native five-minute bars, with no interpolation or gap filling, and the change is recorded before results are viewed.
+- **Permanent control:** A provider's bar availability must be tested at every requested granularity. Do not infer five-minute completeness from a one-minute feed or substitute fabricated bars when a source timestamp is absent.
+
+## 2026-08-14 — Regular-session filter initially treated early-close after-hours bars as RTH
+
+- **Mistake:** The first native five-minute pull used a universal 16:00 ET session close. On Nasdaq early-close days, Alpaca returned later extended-hours bars that the filter incorrectly treated as regular-session data.
+- **Impact:** A normal early-close transition appeared as an apparent data gap, so the provider could have been rejected for the wrong reason.
+- **Correction:** Added the Nasdaq early-close calendar for the frozen study period to both the downloader and independent audit. Each affected day now ends at the 12:55 ET bar; the source remains subject to the same no-gap audit inside that session.
+- **Permanent control:** Session filters must use the venue holiday and early-close calendar, not only weekday and clock-time rules.
