@@ -1,0 +1,63 @@
+//@version=6
+// Frozen clean-room interpretation of a public VWAP-absorption hypothesis.
+strategy("TSLA 5m VWAP Absorption Clean-Room v1", overlay = true, initial_capital = 100000,
+     default_qty_type = strategy.fixed, default_qty_value = 1, pyramiding = 0,
+     commission_type = strategy.commission.percent, commission_value = 0.01, slippage = 5,
+     process_orders_on_close = false, calc_on_every_tick = false, calc_on_order_fills = false,
+     use_bar_magnifier = false)
+
+if barstate.isfirst and syminfo.ticker != "TSLA"
+    runtime.error("Run this clean-room study on TSLA only.")
+if barstate.isfirst and (not timeframe.isminutes or timeframe.multiplier != 5)
+    runtime.error("Run this clean-room study on a standard 5-minute chart only.")
+
+string nyTz = "America/New_York"
+// Use the exchange's actual regular-session status so Nasdaq early closes do
+// not accidentally admit provider/chart after-hours bars.
+bool inRth = session.ismarket
+bool signalWindow = not na(time(timeframe.period, "1110-1450", nyTz))
+float sessionVwap = ta.vwap(hlc3)
+float atr = ta.atr(14)
+float priorVolumeP80 = ta.percentile_nearest_rank(volume[1], 20, 80)
+bool compressed = high - low <= 0.50 * atr
+bool longSignal = barstate.isconfirmed and inRth and signalWindow and compressed and volume >= priorVolumeP80 and close < sessionVwap
+bool shortSignal = barstate.isconfirmed and inRth and signalWindow and compressed and volume >= priorVolumeP80 and close > sessionVwap
+
+var bool pendingEntry = false
+var float pendingVwap = na
+var float pendingAtr = na
+var float entryVwap = na
+var float entryAtr = na
+var int entryBar = na
+bool enteredThisBar = strategy.position_size != 0 and strategy.position_size[1] == 0
+bool exitedThisBar = strategy.position_size == 0 and strategy.position_size[1] != 0
+if enteredThisBar
+    pendingEntry := false
+    entryVwap := pendingVwap
+    entryAtr := pendingAtr
+    entryBar := bar_index
+if exitedThisBar
+    entryVwap := na
+    entryAtr := na
+    entryBar := na
+
+bool flatAndReady = strategy.position_size == 0 and not pendingEntry
+if longSignal and flatAndReady
+    strategy.entry("L", strategy.long, comment = "VWAP absorption long")
+    pendingEntry := true
+    pendingVwap := sessionVwap
+    pendingAtr := atr
+if shortSignal and flatAndReady
+    strategy.entry("S", strategy.short, comment = "VWAP absorption short")
+    pendingEntry := true
+    pendingVwap := sessionVwap
+    pendingAtr := atr
+
+bool vwapReached = strategy.position_size > 0 ? close >= entryVwap : strategy.position_size < 0 ? close <= entryVwap : false
+bool adverseAtr = strategy.position_size > 0 ? close <= strategy.position_avg_price - entryAtr : strategy.position_size < 0 ? close >= strategy.position_avg_price + entryAtr : false
+bool sixtyMinuteExit = strategy.position_size != 0 and not na(entryBar) and bar_index - entryBar >= 11
+bool sessionExit = not na(time(timeframe.period, "1550-1555", nyTz))
+if strategy.position_size != 0 and barstate.isconfirmed and (vwapReached or adverseAtr or sixtyMinuteExit or sessionExit)
+    strategy.close_all(comment = vwapReached ? "VWAP reached" : adverseAtr ? "1 ATR adverse" : sixtyMinuteExit ? "60-minute exit" : "session exit")
+
+plot(sessionVwap, "Session VWAP", color = color.orange)

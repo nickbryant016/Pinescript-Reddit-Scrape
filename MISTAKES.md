@@ -63,3 +63,10 @@ This is a permanent process log for the TSLA research project. Entries record th
 - **Impact:** A normal early-close transition appeared as an apparent data gap, so the provider could have been rejected for the wrong reason.
 - **Correction:** Added the Nasdaq early-close calendar for the frozen study period to both the downloader and independent audit. Each affected day now ends at the 12:55 ET bar; the source remains subject to the same no-gap audit inside that session.
 - **Permanent control:** Session filters must use the venue holiday and early-close calendar, not only weekday and clock-time rules.
+
+## 2026-08-15 — Pine VWAP study initially used a clock-only RTH gate
+
+- **Mistake:** The first Pine draft for the VWAP absorption study used `0930-1600` as its only regular-session gate.
+- **Impact:** On a chart with extended-hours bars, that clock window can include bars after a Nasdaq early close, diverging from the independently audited data contract.
+- **Correction:** Changed the Pine gate to `session.ismarket`, which uses the instrument exchange's actual regular-session state; the Python replay already applies the pre-registered early-close calendar.
+- **Permanent control:** Pine implementations of an audited session rule must use exchange-session state where available, not a universal clock window alone.
