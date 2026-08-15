@@ -42,3 +42,10 @@ This is a permanent process log for the TSLA research project. Entries record th
 - **Impact:** `EQUS.MINI` begins on 2023-03-28, which cannot support the frozen 2019–2022 development window. Proceeding would have silently broken the validation design.
 - **Correction:** Verified coverage in the authenticated portal before any purchase. The plan now specifies `XNAS.ITCH` primary-listing one-minute OHLCV, available from 2018-05-01, and explicitly records its non-consolidated scope.
 - **Permanent control:** Verify a vendor's symbol-level history, schema, venue scope, date bounds, and exact estimate in the authenticated catalog before recording a dataset in a research charter or sending a data request.
+
+## 2026-08-14 — Free long-history sources were not screened before recommending paid data
+
+- **Mistake:** I recommended a paid Databento request before checking whether a documented free provider could supply the frozen study's required historical bars.
+- **Impact:** This created unnecessary account setup and delayed the research workflow.
+- **Correction:** Verified Alpaca Basic's documented historical coverage since 2016 and its free historical SIP access for completed periods, then replaced the data-intake plan with an Alpaca adapter.
+- **Permanent control:** Before recommending a paid dataset for a backtest, screen and document viable free sources against the exact symbol, bar interval, date range, feed scope, and retention requirement.

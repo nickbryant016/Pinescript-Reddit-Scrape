@@ -4,13 +4,13 @@
 
 Use a documented historical **one-minute OHLCV** source for the initial Phase 3 signal study, then use top-of-book trades/quotes only after the signal survives fixed out-of-sample and cost-stress checks.
 
-The provider is **Databento US Equities**. Its documentation lists one-minute OHLCV bars and top-of-book schemas; the latter is appropriate for later bid/ask execution analysis, not a prerequisite for the current bar-level hypothesis. [Databento schemas](https://databento.com/docs/knowledge-base)
+The initial provider is **Alpaca Basic** using its historical SIP feed. Alpaca documents historical US stock coverage since 2016 and permits SIP historical queries on the free plan when the query end is at least 15 minutes old. The feed is consolidated across US exchanges, which is a better fit for a chart-level TSLA study than a single-venue proxy. [Alpaca plan and coverage](https://docs.alpaca.markets/us/v1.1/docs/about-market-data-api) and [historical feed rules](https://docs.alpaca.markets/us/docs/market-data-faq)
 
 ## Selected source and coverage
 
-The selected source is **Databento Nasdaq TotalView-ITCH (`XNAS.ITCH`)**, TSLA's primary-listing venue. It supports one-minute OHLCV from 2018-05-01, covering the frozen 2019-2024 development and validation periods. This is a **primary-venue** series, not a consolidated US-equities series; it is fit for the clean-room research test but is not assumed to reproduce a TradingView chart exactly.
+The selected source is **Alpaca SIP**, fetched as raw, one-minute TSLA bars and aggregated locally to five minutes. It covers the frozen 2019-2024 development and validation periods without changing the strategy specification.
 
-The user has created a provider account and API key outside this repository. No API key is stored here, and no data request has yet been submitted by this project.
+No Alpaca credential is stored in this repository. No market-data request has yet been submitted by this project.
 
 ## Phase 3 request
 
@@ -21,12 +21,12 @@ Request a vendor estimate before downloading:
 | Symbol | TSLA, with provider-specific raw-symbol convention documented |
 | Period | 2019-01-01 through the current available date |
 | Granularity | 1-minute OHLCV, aggregated locally into 5-minute bars |
-| Coverage | Nasdaq primary-listing venue; regular US trading session must be present; retain full-session source rows locally for audit |
+| Coverage | Alpaca SIP consolidated US-equities feed; regular US trading session must be present; retain full-session source rows locally for audit |
 | Price treatment | Document raw versus split-adjusted prices and ensure one convention for the entire period |
 | File format | CSV normalized to the project contract, timestamps as bar opens with explicit UTC offsets |
 | Storage | `data/raw/` locally only; never commit licensed raw data or API keys |
 
-On 2026-08-14, the authenticated provider portal quoted **$1.04 in credits** for `XNAS.ITCH`, `OHLCV-1m`, TSLA, 2019-01-01 through 2026-08-13 UTC (92.90 MB). Submission remains pending the user’s confirmation.
+The data is free under Alpaca Basic's documented historical-access policy. Record the actual request time, credentials' plan, feed (`sip`), adjustment (`raw`), response pagination, and file hash before assessing any results.
 
 ## Why not use free short-retention bars?
 
@@ -38,12 +38,12 @@ If the one-minute-bar signal passes Phase 3, request a bounded sample of top-of-
 
 ## Local preparation
 
-`tools/fetch_databento_ohlcv.py` is an optional downloader/normalizer. It does nothing unless `DATABENTO_API_KEY` is set locally. It converts provider one-minute bars to the repository’s required timezone-aware five-minute CSV and rejects incomplete five-minute aggregates.
+`tools/fetch_alpaca_ohlcv.py` is the primary downloader/normalizer. It requires `APCA_API_KEY_ID` and `APCA_API_SECRET_KEY` only in the local shell, requests raw SIP one-minute bars, handles pagination, converts them to the repository's timezone-aware five-minute CSV, and rejects incomplete five-minute aggregates.
 
 ```powershell
-pip install -r requirements-data.txt
-$env:DATABENTO_API_KEY = "..." # keep this outside the repository
-python tools/fetch_databento_ohlcv.py --dataset XNAS.ITCH --symbol TSLA --start 2019-01-01 --end 2026-08-14 --output data/raw/tsla_5m.csv
+$env:APCA_API_KEY_ID = "..." # keep both secrets outside the repository
+$env:APCA_API_SECRET_KEY = "..."
+python tools/fetch_alpaca_ohlcv.py --symbol TSLA --start 2019-01-01 --end 2026-08-14 --output data/raw/tsla_5m.csv
 ```
 
-Before running the command, confirm the dataset entitlement and vendor estimate in the provider portal. The dataset flag is explicit because availability depends on the account’s current entitlement.
+Before running the command, confirm that the credentials belong to the Basic plan and record the data-access terms in `DATA_PROVENANCE.md`.
