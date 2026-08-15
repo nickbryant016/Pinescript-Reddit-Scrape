@@ -1,0 +1,71 @@
+//@version=6
+// Frozen clean-room proxy of the public TSLA filtered-breakout discussion.
+strategy("TSLA 5m Filtered Breakout Clean-Room v1", overlay = true, initial_capital = 100000,
+     default_qty_type = strategy.fixed, default_qty_value = 1, pyramiding = 0,
+     commission_type = strategy.commission.percent, commission_value = 0.01, slippage = 5,
+     process_orders_on_close = false, calc_on_every_tick = false, calc_on_order_fills = false,
+     use_bar_magnifier = false)
+
+if barstate.isfirst and syminfo.ticker != "TSLA"
+    runtime.error("Run this clean-room study on TSLA only.")
+if barstate.isfirst and (not timeframe.isminutes or timeframe.multiplier != 5)
+    runtime.error("Run this clean-room study on a standard 5-minute chart only.")
+
+string nyTz = "America/New_York"
+bool inRth = session.ismarket
+bool signalWindow = not na(time(timeframe.period, "0950-1450", nyTz))
+float rangeHigh = ta.highest(high[1], 4)
+float rangeLow = ta.lowest(low[1], 4)
+float rangeSize = rangeHigh - rangeLow
+float atr = ta.atr(14)
+[_, _, adx] = ta.dmi(14, 14)
+float completedHourRsi = request.security(syminfo.tickerid, "60", ta.rsi(close, 14)[1], gaps = barmerge.gaps_off, lookahead = barmerge.lookahead_on)
+float candleRange = high - low
+bool candleStrongLong = candleRange > 0 and math.abs(close - open) >= 0.50 * atr and close >= high - 0.25 * candleRange
+bool candleStrongShort = candleRange > 0 and math.abs(close - open) >= 0.50 * atr and close <= low + 0.25 * candleRange
+bool common = barstate.isconfirmed and inRth and signalWindow and adx >= 20 and rangeSize >= 0.50 * atr
+bool longSignal = common and close > rangeHigh and close[1] <= rangeHigh and candleStrongLong and completedHourRsi >= 45 and completedHourRsi <= 70
+bool shortSignal = common and close < rangeLow and close[1] >= rangeLow and candleStrongShort and completedHourRsi >= 30 and completedHourRsi <= 55
+
+var bool pendingEntry = false
+var float pendingHigh = na
+var float pendingLow = na
+var float entryHigh = na
+var float entryLow = na
+var int entryBar = na
+bool enteredThisBar = strategy.position_size != 0 and strategy.position_size[1] == 0
+bool exitedThisBar = strategy.position_size == 0 and strategy.position_size[1] != 0
+if enteredThisBar
+    pendingEntry := false
+    entryHigh := pendingHigh
+    entryLow := pendingLow
+    entryBar := bar_index
+if exitedThisBar
+    entryHigh := na
+    entryLow := na
+    entryBar := na
+
+bool flatAndReady = strategy.position_size == 0 and not pendingEntry
+if longSignal and flatAndReady
+    strategy.entry("L", strategy.long, comment = "filtered breakout long")
+    pendingEntry := true
+    pendingHigh := rangeHigh
+    pendingLow := rangeLow
+if shortSignal and flatAndReady
+    strategy.entry("S", strategy.short, comment = "filtered breakout short")
+    pendingEntry := true
+    pendingHigh := rangeHigh
+    pendingLow := rangeLow
+
+float exitEma = not na(time(timeframe.period, "1500-1555", nyTz)) ? ta.ema(close, 8) : ta.ema(close, 20)
+bool target = strategy.position_size > 0 ? close >= strategy.position_avg_price * 1.0275 : strategy.position_size < 0 ? close <= strategy.position_avg_price * 0.9725 : false
+bool trail = strategy.position_size > 0 ? close < exitEma : strategy.position_size < 0 ? close > exitEma : false
+bool backInside = strategy.position_size > 0 ? close <= entryHigh : strategy.position_size < 0 ? close >= entryLow : false
+bool noProgress = strategy.position_size > 0 ? bar_index - entryBar >= 5 and close <= strategy.position_avg_price : strategy.position_size < 0 ? bar_index - entryBar >= 5 and close >= strategy.position_avg_price : false
+bool timeExit = strategy.position_size != 0 and not na(entryBar) and bar_index - entryBar >= 11
+bool sessionExit = not na(time(timeframe.period, "1550-1555", nyTz))
+if strategy.position_size != 0 and barstate.isconfirmed and (target or trail or backInside or noProgress or timeExit or sessionExit)
+    strategy.close_all(comment = target ? "2.75% target" : trail ? "EMA trail" : backInside ? "range return" : noProgress ? "no progress" : timeExit ? "60-minute exit" : "session exit")
+
+plot(rangeHigh, "Prior four-bar high", color = color.new(color.lime, 35), style = plot.style_linebr)
+plot(rangeLow, "Prior four-bar low", color = color.new(color.red, 35), style = plot.style_linebr)

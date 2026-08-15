@@ -70,3 +70,17 @@ This is a permanent process log for the TSLA research project. Entries record th
 - **Impact:** On a chart with extended-hours bars, that clock window can include bars after a Nasdaq early close, diverging from the independently audited data contract.
 - **Correction:** Changed the Pine gate to `session.ismarket`, which uses the instrument exchange's actual regular-session state; the Python replay already applies the pre-registered early-close calendar.
 - **Permanent control:** Pine implementations of an audited session rule must use exchange-session state where available, not a universal clock window alone.
+
+## 2026-08-15 — Initial validation framework omitted Monte Carlo path-risk diagnostics
+
+- **Mistake:** The first two candidate reports used fixed out-of-sample segments and cost stress but did not include a pre-registered resampling diagnostic.
+- **Impact:** The rejection decisions remain supported by negative OOS performance, but reports did not quantify uncertainty in terminal P&L and drawdown due to trade ordering.
+- **Correction:** Added a deterministic 20,000-replicate circular block bootstrap to the framework and required it for the next complete candidate run.
+- **Permanent control:** Every candidate that clears a fixed OOS gate must include a documented, seeded path-risk diagnostic; it is supplementary and cannot be used to select parameters or overturn a failed OOS result.
+
+## 2026-08-15 — Filtered-breakout replay initially reset completed higher-timeframe RSI at each session
+
+- **Mistake:** The independent replay mapped confirmed 60-minute RSI values only within the same trading day.
+- **Impact:** Pine's non-repainting `request.security(..., rsi[1], lookahead_on)` carries the last completed higher-timeframe value across the overnight boundary, so early-session signals could diverge from the Pine reference.
+- **Correction:** Changed the replay to forward-fill the last confirmed hourly RSI across session boundaries and reran the same frozen rule set, splits, costs, and Monte Carlo seed.
+- **Permanent control:** Every higher-timeframe Pine expression needs an explicit lower-timeframe availability map, including the session-boundary behavior of confirmed values.
